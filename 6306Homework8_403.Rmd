@@ -2,9 +2,10 @@
 title: "Homework 8, Live Assignment"
 author: "Mike Martos"
 date: "July 4, 2016"
-output: 
-  html_document :
-  keep_md: yes
+output:
+  pdf_document: default
+  html_document:
+    keep_md: yes
 ---
 
 ```{r setup, include=FALSE}
