@@ -1,341 +1,197 @@
-# Post Live Session 8 - May 29th
+# Homework 8, Live Assignment
 Mike Martos  
-June 25, 2016  
+July 4, 2016  
 
 
 
 ```r
-library(downloader)
 library(ggplot2)
-library(vcd)
 ```
 
-```
-## Loading required package: grid
-```
-
-###Download data 
+###Download data and prepare
 
 ```r
-download("http://stat.columbia.edu/~rachel/datasets/nyt29.csv",
-         destfile="./Data/Raw/clickstream29.csv")
-clickstream29 <- read.csv("./Data/Raw/clickstream29.csv")
+##################################################################################
+#This is the raw data, we have it in a zip file in the data folder
+#voterdata <- read.csv("./Data/LWV_Data.csv")
+#write.table(voterdata, "./Data/FinalData.csv")
+##################################################################################
+voterdata <- read.csv("./Data/FinalData.csv")
+##################################################################################
+nvote <- voterdata[which(voterdata$control == 1 | voterdata$flyer == 1 | voterdata$post == 1),]
+write.table(nvote, "./Data/FinalData.csv", sep = ",")
+##################################################################################
+#Calculate age
+voterdata$age <- 2016 - voterdata$byear
+
+#Subset the 24K observations 
+nvote <- voterdata[which(voterdata$control == 1 | voterdata$flyer == 1 | voterdata$post == 1),]
+
+#Further subset by type of treatment group
+fvote <- voterdata[which(voterdata$flyer == 1),]
+pvote <- voterdata[which(voterdata$post == 1),]
+cvote <- voterdata[which(voterdata$control == 1),]
+
+#New field holding type of treatment
+nvote$group <- ifelse(nvote$flyer == 1,"flyer",ifelse(nvote$post == 1,"postcard","control"))
+
+#Change data types for some fields
+nvote$byear <- as.factor(nvote$byear)
+nvote$flyer <- as.factor(nvote$flyer)
+nvote$control <- as.factor(nvote$control)
+nvote$post <- as.factor(nvote$post)
 ```
 
-###Tidy data
+###Compare birth year and treatment, showing just the most recent years
 
 ```r
-#Get min and max of age
-min <- min(clickstream29$Age)
-max <- max(clickstream29$Age)
-#Create breaks
-breaks <- c(min,18,24,34,44,54,64,max)
-#Make the signed in a factor
-clickstream29$Signed_In <- factor(clickstream29$Signed_In)
-#Make the Gender in a factor
-clickstream29$Gender <- factor(clickstream29$Gender)
-#Make the Gender in a factor
-clickstream29$CTR <- clickstream29$Clicks/clickstream29$Impressions
+#Using tail to just show the last records
+tail(table(nvote$byear,nvote$post))
 ```
 
-###Create new field for ageGroup and assign from breaks
+```
+##       
+##           0   1
+##   1991  708 195
+##   1992  782 167
+##   1993 1014   0
+##   1994 1039   0
+##   1995  928   0
+##   1996  531   0
+```
 
 ```r
-clickstream29$ageGroup <- cut(clickstream29$Age, breaks, 
-                              labels = c("18-", "18-24", "25-34", "35-44", "45-54", "55-64", "65+"), 
-                              include.lowest = TRUE, ordered_result = TRUE)
+tail(table(nvote$byear,nvote$flyer))
 ```
 
-###Create new field for CTRGroup and assign from breaks, intervals closed on the left
+```
+##       
+##          0   1
+##   1991 423 480
+##   1992 376 573
+##   1993 241 773
+##   1994 366 673
+##   1995 925   3
+##   1996 531   0
+```
 
 ```r
-#Create breaks
-breaks <- c(0,0.2,0.4,0.6,0.8,1)
-clickstream29$CTRGroup <- cut(clickstream29$CTR, breaks, 
-                              labels = c("0.0-0.2", "0.2-0.4", "0.4-0.6", "0.6-0.8", "0.8-1.0"), 
-                              include.lowest = TRUE, ordered_result = TRUE, right = FALSE)
+tail(table(nvote$byear,nvote$control))
 ```
 
-###Get the total number of Male, Impressions, Clicks and Signed_In (0=Female, 1=Male)
+```
+##       
+##          0   1
+##   1991 675 228
+##   1992 740 209
+##   1993 773 241
+##   1994 673 366
+##   1995   3 925
+##   1996   0 531
+```
 
+####There seems to be some inconsistencies in the later years, on the treatment applied (bias)
 
-
-###Remove some data and store in variables
+###Flyer histogram, right skewed, voters between ~21 AND ~25 were mainly targeted with this treatment
 
 ```r
-#Remove records with no ages
-clickstream29Age <- subset(clickstream29, clickstream29$Age > 0)
-#Subset records with clicks
-clickstream29Click <- subset(clickstream29Age, clickstream29Age$Clicks > 0)
-#Subset records with Impressions > 0
-ImpSub <- subset(clickstream29, clickstream29$Impressions > 0)
+q <- ggplot(fvote, aes(age, fill=..count..))
+q + geom_histogram(binwidth=1) 
 ```
 
-###Store intermediate files
+![](6306Homework8_403_files/figure-html/ageFlyer-1.png)<!-- -->
+
+###Postcard histogram, notice the high concentration in the 25 to 31 age range.
 
 ```r
-write.csv(clickstream29, file = "./Data/ClickStream29ageGroup.csv")
-write.csv(clickstream29Age, file = "./Data/ClickStream29ageGroupWithAge.csv")
-write.csv(clickstream29Click, file = "./Data/ClickStream29ageGroupWithAgeClicks.csv")
-write.csv(ImpSub, file = "./Data/ImpSub.csv")
+q <- ggplot(pvote, aes(age, fill=..count..))
+q + geom_histogram(binwidth=1) 
 ```
 
+![](6306Homework8_403_files/figure-html/agePostcard-1.png)<!-- -->
 
-###Plot distributions of number impressions and click-through-rate for the age groups, the problem here is that the EDA showed the age, gender are only recorded for Signed_in users, thus the users that were not signed in will have 0 age and will have 0 as gender, which is not correct.
+###High concentration on the 21 age range, compared to the rest of the distribution, one more thing, and probably the most important, is that the data get all the way to 20 years of age, the minimum value is different
 
 ```r
-plot(ImpSub$ageGroup, ImpSub$CTR, main="Distribution CTR")
+q <- ggplot(cvote, aes(age, fill=..count..))
+q + geom_histogram(binwidth=1) 
 ```
 
-![](6306LiveSession8_403_files/figure-html/unnamed-chunk-1-1.png)<!-- -->
+![](6306Homework8_403_files/figure-html/ageControl-1.png)<!-- -->
 
-###Number or users registered as Male
+####Showing the three groups together to show some pattern.
+
+###The graph, shows that the postcards, were sent to older people mainly, and the control group has younger people it would seem, or at least has the minimum age observations.
 
 ```r
-sum(ImpSub$Gender == 1)
+q <- ggplot(nvote, aes(age, fill=group))
+q + geom_histogram(binwidth=1) 
 ```
 
-```
-## [1] 131325
-```
+![](6306Homework8_403_files/figure-html/ageAllTreatments-1.png)<!-- -->
 
-###Summatory of number of impresions
+####I'll try to run some statistics to prove the above
+###Compare mean ages between flyer and postcard treatment groups, it shows strong evidence that the mean age is between 5 and 6 years higher on the postcard group.
 
 ```r
-sum(ImpSub$Impressions)
+t.test(fvote$age,pvote$age)
 ```
 
 ```
-## [1] 2313441
+## 
+## 	Welch Two Sample t-test
+## 
+## data:  fvote$age and pvote$age
+## t = -20.15, df = 15490, p-value < 2.2e-16
+## alternative hypothesis: true difference in means is not equal to 0
+## 95 percent confidence interval:
+##  -5.867145 -4.826855
+## sample estimates:
+## mean of x mean of y 
+##  37.30775  42.65475
 ```
 
-###Summatory of number of clicks
+###Compare mean ages between flyer treatment and control groups, it shows evidence of age mean differences, with the flyer treatment group about a year older.
 
 ```r
-sum(ImpSub$Clicks)
+t.test(fvote$age,cvote$age)
 ```
 
 ```
-## [1] 47710
+## 
+## 	Welch Two Sample t-test
+## 
+## data:  fvote$age and cvote$age
+## t = 2.7594, df = 15995, p-value = 0.005797
+## alternative hypothesis: true difference in means is not equal to 0
+## 95 percent confidence interval:
+##  0.193279 1.141221
+## sample estimates:
+## mean of x mean of y 
+##  37.30775  36.64050
 ```
 
-###Number of users showing as signed in.
+###Compare mean ages between Postcard treatment and control groups, it shows strong evidence that the postcard treatment group is 5 to 7 years older than the control group.
 
 ```r
-sum(ImpSub$Signed_In == 1)
+t.test(pvote$age,cvote$age)
 ```
 
 ```
-## [1] 252994
+## 
+## 	Welch Two Sample t-test
+## 
+## data:  pvote$age and cvote$age
+## t = 22.536, df = 15560, p-value < 2.2e-16
+## alternative hypothesis: true difference in means is not equal to 0
+## 95 percent confidence interval:
+##  5.491144 6.537356
+## sample estimates:
+## mean of x mean of y 
+##  42.65475  36.64050
 ```
 
-###Mean of Age
-
-```r
-mean(ImpSub$Age)
-```
-
-```
-## [1] 23.15368
-```
-
-###Mean of Impressions
-
-```r
-mean(ImpSub$Impressions)
-```
-
-```
-## [1] 5.032031
-```
-
-###Mean of clicks
-
-```r
-mean(ImpSub$Clicks)
-```
-
-```
-## [1] 0.1037754
-```
-
-###Mean of CTR
-
-```r
-mean(ImpSub$CTR)
-```
-
-```
-## [1] 0.020602
-```
-
-###Mean of Percentage of males
-
-```r
-100 * sum(ImpSub$Gender == 1)/length(ImpSub$Gender)
-```
-
-```
-## [1] 28.56487
-```
-
-###Mean of Percentage of Signed In
-
-```r
-100 * sum(ImpSub$Signed_In == 1)/length(ImpSub$Gender)
-```
-
-```
-## [1] 55.02944
-```
-
-###Mean of Impressions by AgeGroup
-
-```r
-aggregate(ImpSub[, 3], list(ImpSub$ageGroup), mean)
-```
-
-```
-##   Group.1        x
-## 1     18- 5.035626
-## 2   18-24 5.035489
-## 3   25-34 5.014613
-## 4   35-44 5.031960
-## 5   45-54 5.017287
-## 6   55-64 5.047573
-## 7     65+ 5.036310
-```
-
-###Mean of clicks by AgeGroup
-
-```r
-aggregate(ImpSub[, 4], list(ImpSub$ageGroup), mean)
-```
-
-```
-##   Group.1          x
-## 1     18- 0.14295815
-## 2   18-24 0.04930054
-## 3   25-34 0.04949926
-## 4   35-44 0.05109620
-## 5   45-54 0.04979106
-## 6   55-64 0.09875736
-## 7     65+ 0.15315631
-```
-
-###Mean of CTR by AgeGroup
-
-```r
-aggregate(ImpSub[, 6], list(ImpSub$ageGroup), mean)
-```
-
-```
-##   Group.1           x
-## 1     18- 0.028395993
-## 2   18-24 0.009613089
-## 3   25-34 0.009755117
-## 4   35-44 0.010051133
-## 5   45-54 0.009998228
-## 6   55-64 0.019431290
-## 7     65+ 0.030855817
-```
-
-###Percentage of Males by AgeGroup
-
-```r
-sumAge <- aggregate(ImpSub$Gender == 1,list(ImpSub$ageGroup), sum)
-lenAge <- aggregate(ImpSub[, 6], list(ImpSub$ageGroup), length)
-merged <- merge(sumAge,lenAge,by="Group.1")
-names(merged) <- c("ageGroup","MalesQty","TotalQty")
-merged$pct <- round(100 * merged$MalesQty/merged$TotalQty,2)
-merged
-```
-
-```
-##   ageGroup MalesQty TotalQty   pct
-## 1      18-     9844   222058  4.43
-## 2    18-24    14729    28093 52.43
-## 3    25-34    23952    45233 52.95
-## 4    35-44    29301    55601 52.70
-## 5    45-54    26796    50732 52.82
-## 6    55-64    18540    35167 52.72
-## 7      65+     8163    22859 35.71
-```
-
-###Percentage of signed in by AgeGroup, again, only signed in, show gender, that is why we get these results
-
-```r
-meanSigned <- aggregate(ImpSub$Signed_In == 1,list(ImpSub$ageGroup), sum)
-lenAge <- aggregate(ImpSub[, 6], list(ImpSub$ageGroup), length)
-merged <- merge(meanSigned,lenAge,by="Group.1")
-names(merged) <- c("ageGroup","SignedQty","TotalQty")
-merged$pct <- round(100 * merged$SignedQty/merged$TotalQty,2)
-merged
-```
-
-```
-##   ageGroup SignedQty TotalQty    pct
-## 1      18-     15309   222058   6.89
-## 2    18-24     28093    28093 100.00
-## 3    25-34     45233    45233 100.00
-## 4    35-44     55601    55601 100.00
-## 5    45-54     50732    50732 100.00
-## 6    55-64     35167    35167 100.00
-## 7      65+     22859    22859 100.00
-```
-
-###Create a table of the CTRGroup vs AgeGroup counts
-
-```r
-table(ImpSub$CTRGroup, ImpSub$ageGroup)
-```
-
-```
-##          
-##              18-  18-24  25-34  35-44  45-54  55-64    65+
-##   0.0-0.2 207163  27492  44213  54311  49541  33608  21194
-##   0.2-0.4  12911    536    929   1185   1070   1376   1433
-##   0.4-0.6   1620     57     74     86    102    154    197
-##   0.6-0.8    116      1      1      2      3      5     12
-##   0.8-1.0    248      7     16     17     16     24     23
-```
-
-###Plot distribution Impressions
-
-```r
-qplot(ImpSub$Impressions, main="Distribution Impressions", fill=ImpSub$ageGroup,binwidth = 0.5)
-```
-
-![](6306LiveSession8_403_files/figure-html/unnamed-chunk-2-1.png)<!-- -->
-
-###Plot distribution CTR
-
-```r
-qplot(ImpSub$CTR, main="Distribution CTR", fill=ImpSub$ageGroup,binwidth = 0.05)
-```
-
-![](6306LiveSession8_403_files/figure-html/unnamed-chunk-3-1.png)<!-- -->
-
-###As mentioned earlier, I found that only signed in users have real gender and age information recorded, the default age for that group of not signed user is 0, which shows in the previous two plots, give this I've decided to plot the last two graphics for only signed in users, for that I have Data.frame *clickstream29Age* which I calculated earlier in the process. **Note the change in the 18- group**
-
-```r
-qplot(Impressions, data=clickstream29Age, fill=ageGroup, 
-      main="Impressions by Age Group, Signed In Only",binwidth = 0.5)
-```
-
-![](6306LiveSession8_403_files/figure-html/AdditionalPlots-1.png)<!-- -->
-
-```r
-qplot(CTR, data=clickstream29Age, fill=ageGroup, 
-      main="Impressions by Age Group, Signed In Only",binwidth = 0.05)
-```
-
-```
-## Warning: Removed 1678 rows containing non-finite values (stat_bin).
-```
-
-![](6306LiveSession8_403_files/figure-html/AdditionalPlots-2.png)<!-- -->
+###**Conclusion : ** Based on the observation of the data, we can claim that there is a bias in the mean age of the groups, being the control group the younger and the postcard the older. Additionally, there were no flyer nor postard sent to the voters with the latest birth years recorded, 1995 and 1996, which were not eligible to vote in any of the three elections, but there are  1456 of them in the control group. 
 
 
- 
-       
+
