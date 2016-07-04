@@ -1,30 +1,105 @@
 ---
-title: "Homework 8"
+title: "Homework 8, Live Assignment"
 author: "Mike Martos"
 date: "July 4, 2016"
-output: html_document
+output: 
+  html_document :
+  keep_md: yes
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r libraries}
+library(ggplot2)
 ```
 
-## Including Plots
+###Download data and prepare
+```{r LoadData, cache=TRUE}
+##################################################################################
+#This is the raw data, we have it in a zip file in the data folder
+#voterdata <- read.csv("./Data/LWV_Data.csv")
+#write.table(voterdata, "./Data/FinalData.csv")
+##################################################################################
+voterdata <- read.csv("./Data/FinalData.csv")
+##################################################################################
+nvote <- voterdata[which(voterdata$control == 1 | voterdata$flyer == 1 | voterdata$post == 1),]
+write.table(nvote, "./Data/FinalData.csv", sep = ",")
+##################################################################################
+#Calculate age
+voterdata$age <- 2016 - voterdata$byear
 
-You can also embed plots, for example:
+#Subset the 24K observations 
+nvote <- voterdata[which(voterdata$control == 1 | voterdata$flyer == 1 | voterdata$post == 1),]
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+#Further subset by type of treatment group
+fvote <- voterdata[which(voterdata$flyer == 1),]
+pvote <- voterdata[which(voterdata$post == 1),]
+cvote <- voterdata[which(voterdata$control == 1),]
+
+#New field holding type of treatment
+nvote$group <- ifelse(nvote$flyer == 1,"flyer",ifelse(nvote$post == 1,"postcard","control"))
+
+#Change data types for some fields
+nvote$byear <- as.factor(nvote$byear)
+nvote$flyer <- as.factor(nvote$flyer)
+nvote$control <- as.factor(nvote$control)
+nvote$post <- as.factor(nvote$post)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+###Compare birth year and treatment, showing just the most recent years
+```{r byearTreatment}
+#Using tail to just show the last records
+tail(table(nvote$byear,nvote$post))
+tail(table(nvote$byear,nvote$flyer))
+tail(table(nvote$byear,nvote$control))
+```
+
+####There seems to be some inconsistencies in the later years, on the treatment applied (bias)
+
+###Flyer histogram, right skewed, voters between ~21 AND ~25 were mainly targeted with this treatment
+```{r ageFlyer}
+q <- ggplot(fvote, aes(age, fill=..count..))
+q + geom_histogram(binwidth=1) 
+```
+
+###Postcard histogram, notice the high concentration in the 25 to 31 age range.
+```{r agePostcard}
+q <- ggplot(pvote, aes(age, fill=..count..))
+q + geom_histogram(binwidth=1) 
+```
+
+###High concentration on the 21 age range, compared to the rest of the distribution, one more thing, and probably the most important, is that the data get all the way to 20 years of age, the minimum value is different
+```{r ageControl}
+q <- ggplot(cvote, aes(age, fill=..count..))
+q + geom_histogram(binwidth=1) 
+```
+
+####Showing the three groups together to show some pattern.
+
+###The graph, shows that the postcards, were sent to older people mainly, and the control group has younger people it would seem, or at least has the minimum age observations.
+```{r ageAllTreatments}
+q <- ggplot(nvote, aes(age, fill=group))
+q + geom_histogram(binwidth=1) 
+```
+
+####I'll try to run some statistics to prove the above
+###Compare mean ages between flyer and postcard treatment groups, it shows strong evidence that the mean age is between 5 and 6 years higher on the postcard group.
+```{r statsFlyerPostcard}
+t.test(fvote$age,pvote$age)
+```
+
+###Compare mean ages between flyer treatment and control groups, it shows evidence of age mean differences, with the flyer treatment group about a year older.
+```{r statsFlyerControl}
+t.test(fvote$age,cvote$age)
+```
+
+###Compare mean ages between Postcard treatment and control groups, it shows strong evidence that the postcard treatment group is 5 to 7 years older than the control group.
+```{r statsPostcardControl}
+t.test(pvote$age,cvote$age)
+```
+
+###**Conclusion : ** Based on the observation of the data, we can claim that there is a bias in the mean age of the groups, being the control group the younger and the postcard the older. Additionally, there were no flyer nor postard sent to the voters with the latest birth years recorded, 1995 and 1996, which were not eligible to vote in any of the three elections, but there are  1456 of them in the control group. 
+
+
+
