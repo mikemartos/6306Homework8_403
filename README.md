@@ -191,7 +191,7 @@ t.test(pvote$age,cvote$age)
 ##  42.65475  36.64050
 ```
 
-###**Conclusion : ** Based on the observation of the data, we can claim that there is a bias in the mean age of the groups, being the control group the younger and the postcard the older. Additionally, there were no flyer nor postard sent to the voters with the latest birth years recorded, 1995 and 1996, which were not eligible to vote in any of the three elections, but there are  1456 of them in the control group. 
+###*Conclusion : * Based on the observation of the data, we can claim that there is a bias in the mean age of the groups, being the control group the younger and the postcard the older. Additionally, there were no flyer nor postard sent to the voters with the latest birth years recorded, 1995 and 1996, which were not eligible to vote in any of the three elections, but there are  1456 of them in the control group. 
 
 
 
