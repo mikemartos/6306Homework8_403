@@ -337,5 +337,5 @@ qplot(CTR, data=clickstream29Age, fill=ageGroup,
 ![](6306LiveSession8_403_files/figure-html/AdditionalPlots-2.png)<!-- -->
 
 
-
+ 
        
